@@ -1,0 +1,60 @@
+/* 画面共通レイアウト（ヘッダー・スクリーンシェル） */
+.screen {
+  max-width: 480px;
+  margin: 0 auto;
+  width: 100%;
+  padding: var(--space-5) var(--space-4) var(--space-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  flex: 1;
+}
+
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 1.2rem;
+  transition:
+    transform var(--duration-fast) var(--ease-out-expo),
+    background var(--duration-fast);
+}
+
+.back-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.back-button:active {
+  transform: scale(0.92);
+}
+
+.drill-header,
+.stats-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.drill-header__category {
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drill-header__session {
+  font-size: var(--text-sm);
+  color: var(--color-cream-dim);
+  white-space: nowrap;
+}
+
+.stats-header h1 {
+  font-size: var(--text-xl);
+}

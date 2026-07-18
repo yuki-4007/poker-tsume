@@ -1,0 +1,72 @@
+/* デザイントークン: ダークフェルト・ラグジュアリー */
+:root {
+  /* --- カラー: フェルト --- */
+  --color-felt-950: #081711;
+  --color-felt-900: #0d1f17;
+  --color-felt-800: #133327;
+  --color-felt-700: #1a4231;
+
+  /* --- カラー: テキスト --- */
+  --color-cream: #f5f1e6;
+  --color-cream-dim: rgba(245, 241, 230, 0.7);
+  --color-cream-faint: rgba(245, 241, 230, 0.45);
+
+  /* --- カラー: ゴールドアクセント --- */
+  --color-gold: #c9a24b;
+  --color-gold-bright: #e6c274;
+  --color-gold-dim: rgba(201, 162, 75, 0.32);
+
+  /* --- カラー: 意味色（正誤フィードバック） --- */
+  --color-correct: #4caf6d;
+  --color-correct-bg: rgba(76, 175, 109, 0.16);
+  --color-incorrect: #e0574c;
+  --color-incorrect-bg: rgba(224, 87, 76, 0.16);
+
+  /* --- カラー: トランプカード --- */
+  --color-card-bg: #fdfaf3;
+  --color-card-text: #1a1a1a;
+  --suit-spade: #17181a;
+  --suit-heart: #b3273a;
+  --suit-diamond: #2456a6;
+  --suit-club: #1f7a4d;
+
+  /* --- タイポグラフィ --- */
+  --font-serif: Georgia, 'Times New Roman', serif;
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic',
+    sans-serif;
+
+  --text-xs: clamp(0.75rem, 0.72rem + 0.15vw, 0.8rem);
+  --text-sm: clamp(0.85rem, 0.82rem + 0.15vw, 0.95rem);
+  --text-base: clamp(1rem, 0.96rem + 0.2vw, 1.05rem);
+  --text-lg: clamp(1.15rem, 1.08rem + 0.35vw, 1.3rem);
+  --text-xl: clamp(1.4rem, 1.25rem + 0.75vw, 1.75rem);
+  --text-2xl: clamp(1.9rem, 1.6rem + 1.5vw, 2.6rem);
+  --text-hero: clamp(2.2rem, 1.8rem + 2vw, 3rem);
+
+  /* --- スペーシング --- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-section: clamp(2rem, 1.5rem + 3vw, 4rem);
+
+  /* --- 角丸 --- */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  /* --- モーション --- */
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 450ms;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* --- 影 --- */
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-elevated: 0 20px 45px rgba(0, 0, 0, 0.5);
+}

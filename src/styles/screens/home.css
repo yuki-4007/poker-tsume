@@ -1,0 +1,111 @@
+/* ホーム画面固有スタイル */
+.app-title {
+  font-size: var(--text-hero);
+  letter-spacing: 0.01em;
+}
+
+.app-tagline {
+  color: var(--color-cream-dim);
+  margin-top: var(--space-2);
+  font-size: var(--text-base);
+}
+
+.due-alert {
+  margin-top: var(--space-3);
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--color-gold-dim);
+  color: var(--color-gold-bright);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.due-alert-hint {
+  margin-top: var(--space-1);
+  color: var(--color-cream-faint);
+  font-size: var(--text-xs);
+}
+
+.category-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.category-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(245, 241, 230, 0.1);
+  box-shadow: var(--shadow-card);
+  transition:
+    transform var(--duration-fast) var(--ease-out-expo),
+    border-color var(--duration-fast);
+}
+
+.category-card:hover {
+  border-color: var(--color-gold-dim);
+}
+
+.category-card:active {
+  transform: scale(0.98);
+}
+
+.category-card__title {
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+}
+
+.category-card__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-cream-dim);
+}
+
+.mixed-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, var(--color-gold-dim), transparent);
+  border: 1px solid var(--color-gold);
+  transition: transform var(--duration-fast) var(--ease-out-expo);
+}
+
+.mixed-card:hover {
+  transform: translateY(-2px);
+}
+
+.mixed-card:active {
+  transform: scale(0.98);
+}
+
+.mixed-card__title {
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+  color: var(--color-gold-bright);
+}
+
+.mixed-card__desc {
+  font-size: var(--text-sm);
+  color: var(--color-cream-dim);
+}
+
+.stats-link {
+  align-self: center;
+  margin-top: var(--space-3);
+  color: var(--color-cream-dim);
+  font-size: var(--text-sm);
+  transition: color var(--duration-fast);
+}
+
+.stats-link:hover {
+  color: var(--color-gold-bright);
+}

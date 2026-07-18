@@ -1,0 +1,26 @@
+{
+  "name": "詰めポーカー",
+  "short_name": "詰めポーカー",
+  "description": "ポーカー初心者向けの反復ドリルPWA。すきま時間でプリフロップレンジ・オッズ計算・プッシュ/フォールドを鍛える。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d1f17",
+  "theme_color": "#0d1f17",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

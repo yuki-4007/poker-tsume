@@ -1,0 +1,163 @@
+/* ドリル画面固有スタイル */
+.question-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(245, 241, 230, 0.08);
+}
+
+.question-title {
+  font-size: var(--text-xl);
+}
+
+.question-badges {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.situation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--color-cream-dim);
+  font-size: var(--text-sm);
+}
+
+/* --- ミックス出題時の実カテゴリのサブラベル --- */
+.drill-header__subcategory {
+  color: var(--color-cream-dim);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+/* --- 選択肢の正誤記号（色覚に依存しないフィードバック） --- */
+.choice-button__mark {
+  margin-left: 0.4em;
+  font-weight: 700;
+}
+
+/* --- セッション結果サマリー --- */
+.session-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01));
+  border: 1px solid rgba(245, 241, 230, 0.1);
+  box-shadow: var(--shadow-elevated);
+  text-align: center;
+  transform: translateY(8px);
+  opacity: 0;
+  animation: session-summary-in var(--duration-slow) var(--ease-out-expo) forwards;
+}
+
+@keyframes session-summary-in {
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.session-summary__title {
+  font-size: var(--text-2xl);
+  color: var(--color-gold-bright);
+}
+
+.session-summary__category {
+  color: var(--color-cream-dim);
+  font-size: var(--text-sm);
+  letter-spacing: 0.02em;
+}
+
+.session-summary__score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.session-summary__score-value {
+  font-family: var(--font-serif);
+  font-size: var(--text-hero);
+  color: var(--color-cream);
+  line-height: 1;
+}
+
+.session-summary__score-total {
+  font-size: var(--text-lg);
+  color: var(--color-cream-faint);
+}
+
+.session-summary__accuracy {
+  font-size: var(--text-base);
+  color: var(--color-gold-bright);
+  font-weight: 600;
+}
+
+.session-summary__streak {
+  font-size: var(--text-sm);
+  color: var(--color-cream-dim);
+}
+
+.session-summary__comment {
+  font-size: var(--text-base);
+  color: var(--color-cream);
+  max-width: 32ch;
+  line-height: 1.6;
+}
+
+.session-summary__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.session-summary__restart,
+.session-summary__home {
+  min-height: 48px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform var(--duration-fast) var(--ease-out-expo),
+    background var(--duration-fast);
+}
+
+.session-summary__restart {
+  background: var(--color-gold);
+  color: var(--color-felt-950);
+}
+
+.session-summary__restart:hover {
+  background: var(--color-gold-bright);
+}
+
+.session-summary__restart:active {
+  transform: scale(0.96);
+}
+
+.session-summary__home {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-cream);
+  border: 1px solid rgba(245, 241, 230, 0.15);
+}
+
+.session-summary__home:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.session-summary__home:active {
+  transform: scale(0.97);
+}

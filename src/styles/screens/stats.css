@@ -1,0 +1,40 @@
+/* 成績画面固有スタイル */
+.stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.stats-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(245, 241, 230, 0.08);
+}
+
+.stats-row__label {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+}
+
+.stats-row__accuracy {
+  color: var(--color-gold-bright);
+}
+
+.stats-row__accuracy--learning {
+  color: var(--color-cream-faint);
+  font-style: italic;
+}
+
+.stats-row__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--text-sm);
+  color: var(--color-cream-dim);
+}
