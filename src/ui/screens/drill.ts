@@ -110,7 +110,9 @@ export function renderQuestionCard(
       <span class="drill-header__session">${session.answered}/${SESSION_LENGTH}問 連続${session.correctStreak}</span>
     </header>
 
-    <section class="question-card" aria-live="polite">
+    <!-- 問題切替の通知はaria-liveではなく問題見出しへのフォーカス移動で行う
+         （innerHTML差し替えでは新規挿入扱いになりaria-liveが読み上げられないため） -->
+    <section class="question-card">
       <h2 class="question-title">${escapeHtml(question.prompt.title)}</h2>
       <div class="question-badges">${positionBadge}${stackBadge}</div>
       <div class="situation">${situationHtml}</div>
