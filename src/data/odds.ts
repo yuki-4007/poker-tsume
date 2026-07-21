@@ -20,27 +20,52 @@ interface OddsReqPattern {
   readonly call: number;
 }
 
-/** ポット（コール前・相手ベット込みの総額）とコール額の組み合わせ。きれいな数字で構成。 */
-export const ODDS_REQ_PATTERNS: readonly OddsReqPattern[] = [
-  { pot: 5000, call: 1000 }, // 相手ベット1000、元のポット4000（約1/4ポットベット）
-  { pot: 4000, call: 1000 }, // 1/3ポットベット
-  { pot: 3000, call: 1000 }, // ハーフポットベット
-  { pot: 5000, call: 2000 }, // 2/3ポットベット
-  { pot: 7000, call: 3000 }, // 3/4ポットベット
-  { pot: 4000, call: 2000 }, // ポットサイズ(1倍)ベット
-  { pot: 5000, call: 3000 }, // 1.5倍ポットベット
-  { pot: 4500, call: 3000 }, // 2倍ポットのオーバーベット
-  { pot: 6000, call: 1000 }, // 小さめ(1/5ポット)ベット
-  { pot: 4000, call: 3000 }, // 3倍ポット相当の大オーバーベット
-  { pot: 19000, call: 1000 }, // 元のポット18000（約1/18ポットの極小ベット）
-  { pot: 9000, call: 1000 }, // 元のポット8000（1/8ポットベット）
-  { pot: 7000, call: 1000 }, // 元のポット6000（1/6ポットベット）
-  { pot: 17000, call: 3000 }, // 元のポット14000（約1/5強のベット）
-  { pot: 8000, call: 2000 }, // 元のポット6000（1/3ポットベット）
-  { pot: 9000, call: 3000 }, // 元のポット6000（ハーフポットベット）
-  { pot: 6000, call: 4000 }, // 元のポット2000（2倍ポットのオーバーベット）
-  { pot: 11000, call: 9000 }, // 元のポット2000（4.5倍ポットの超オーバーベット）
+/**
+ * ベットサイズの比率（コール額 ÷ ポット額）。
+ * 必要勝率 = call / (pot + call) = ratio / (1 + ratio) となるため、
+ * 以下の比率はそれぞれ 20% / 25% / 33.3% / 40% ちょうどに収まるよう選定している。
+ * （1倍・1.5倍ポットのオーバーベットは call >= pot となり必要勝率50%/60%相当だが、
+ *   buildOddsReqQuestion の call < pot 制約と両立しないため対象外とした）
+ */
+interface BetRatio {
+  readonly num: number;
+  readonly den: number;
+}
+
+const BET_RATIOS: readonly BetRatio[] = [
+  { num: 1, den: 4 }, // 1/4ポットベット → 必要勝率20%
+  { num: 1, den: 3 }, // 1/3ポットベット → 必要勝率25%
+  { num: 1, den: 2 }, // 1/2ポットベット → 必要勝率33.3%
+  { num: 2, den: 3 }, // 2/3ポットベット → 必要勝率40%
 ];
+
+/**
+ * ポット基準額。600の倍数にすることで、上記すべての比率でコール額が
+ * 整数かつ50の倍数になる（600 = lcm(4,3,2) × 50 の倍数）。
+ */
+const POT_BASES: readonly number[] = Array.from({ length: 24 }, (_, i) => (i + 1) * 600);
+
+/**
+ * 比率テーブル × ポット基準額を総当たりし、コール額が整数かつ50の倍数になる
+ * 組み合わせのみを列挙する。同じ問題が固定18パターンに限られていた旧実装に比べ、
+ * 出題空間を大幅に広げて「暗記で解ける」状態を防ぐ。
+ */
+function generateOddsReqPatterns(): readonly OddsReqPattern[] {
+  const patterns: OddsReqPattern[] = [];
+  for (const ratio of BET_RATIOS) {
+    for (const pot of POT_BASES) {
+      const call = (pot * ratio.num) / ratio.den;
+      if (!Number.isInteger(call) || call <= 0 || call % 50 !== 0 || call >= pot) {
+        continue;
+      }
+      patterns.push({ pot, call });
+    }
+  }
+  return patterns;
+}
+
+/** ポット（コール前・相手ベット込みの総額）とコール額の組み合わせ。きれいな数字で構成。 */
+export const ODDS_REQ_PATTERNS: readonly OddsReqPattern[] = generateOddsReqPatterns();
 
 // ------------------------------------------------------------
 // アウツ→勝率問題

@@ -139,6 +139,32 @@
   color: var(--suit-club);
 }
 
+/* --- コミュニティカード（ボード） --- */
+.board {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+}
+
+.board__label {
+  font-size: var(--text-xs);
+  color: var(--color-cream-faint);
+  letter-spacing: 0.04em;
+}
+
+.board__cards {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+}
+
+/* 手札(.hand)よりやや小さいサイズで表示する */
+.board__cards .playing-card {
+  width: clamp(56px, 16vw, 76px);
+}
+
 /* --- 解説パネル --- */
 .explanation-panel {
   border-radius: var(--radius-lg);

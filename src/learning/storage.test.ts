@@ -268,4 +268,134 @@ describe('createLocalStorageStore', () => {
     expect(loaded.categoryCounts.odds).toEqual({ total: 0, correct: 0 });
     expect(warnSpy).toHaveBeenCalled();
   });
+
+  describe('カテゴリ拡張（3→5カテゴリ）への移行', () => {
+    it('3カテゴリ時代のcategoryCountsを読み込むと、新カテゴリが0埋めで補完され、既存の集計は保持される', () => {
+      // Arrange: 3カテゴリ（preflop/odds/pushfold）しか存在しない旧データ形式を模す
+      const fakeLs = new FakeLocalStorage();
+      const legacyState = {
+        version: 1,
+        entries: {},
+        categoryCounts: {
+          preflop: { total: 12, correct: 9 },
+          odds: { total: 5, correct: 3 },
+          pushfold: { total: 20, correct: 15 },
+          // outscount / betsize のキー自体が存在しない（3カテゴリ時代のため）
+        },
+      };
+      fakeLs.setItem(STORAGE_KEY, JSON.stringify(legacyState));
+      (globalThis as { window?: unknown }).window = { localStorage: fakeLs };
+      const store = createLocalStorageStore();
+
+      // Act
+      const loaded = store.load();
+
+      // Assert: 旧データは保持され、新カテゴリは0埋めで補完される（スキーマ不正扱いされない）
+      expect(loaded.categoryCounts.preflop).toEqual({ total: 12, correct: 9 });
+      expect(loaded.categoryCounts.odds).toEqual({ total: 5, correct: 3 });
+      expect(loaded.categoryCounts.pushfold).toEqual({ total: 20, correct: 15 });
+      expect(loaded.categoryCounts.outscount).toEqual({ total: 0, correct: 0 });
+      expect(loaded.categoryCounts.betsize).toEqual({ total: 0, correct: 0 });
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it('3カテゴリ時代のSRSエントリ（新カテゴリのキーを持たないentries）も、クラッシュせず読み込める', () => {
+      // Arrange
+      const fakeLs = new FakeLocalStorage();
+      const legacyState = {
+        version: 1,
+        entries: {
+          'preflop:BTN:AKs': {
+            questionId: 'preflop:BTN:AKs',
+            category: 'preflop',
+            box: 2,
+            wrongCount: 1,
+            correctStreak: 3,
+            dueAt: 1_700_000_000_000,
+            lastAnsweredAt: 1_699_999_000_000,
+          },
+        },
+        categoryCounts: {
+          preflop: { total: 4, correct: 3 },
+          odds: { total: 0, correct: 0 },
+          pushfold: { total: 0, correct: 0 },
+        },
+      };
+      fakeLs.setItem(STORAGE_KEY, JSON.stringify(legacyState));
+      (globalThis as { window?: unknown }).window = { localStorage: fakeLs };
+      const store = createLocalStorageStore();
+
+      // Act
+      const loaded = store.load();
+
+      // Assert: 旧SRSエントリがそのまま保持され、全カテゴリが0埋めで揃っている
+      expect(loaded.entries['preflop:BTN:AKs']).toEqual(legacyState.entries['preflop:BTN:AKs']);
+      expect(loaded.categoryCounts.outscount).toEqual({ total: 0, correct: 0 });
+      expect(loaded.categoryCounts.betsize).toEqual({ total: 0, correct: 0 });
+    });
+
+    it('現行CATEGORIESに存在しないカテゴリのSRSエントリは、console.warnの上で読み捨てられる（他のエントリは保持される）', () => {
+      // Arrange: 将来カテゴリが削除された場合を模した「亡霊カテゴリ」エントリ
+      const fakeLs = new FakeLocalStorage();
+      const stateWithGhostCategory = {
+        version: 1,
+        entries: {
+          'preflop:BTN:AKs': {
+            questionId: 'preflop:BTN:AKs',
+            category: 'preflop',
+            box: 1,
+            wrongCount: 0,
+            correctStreak: 1,
+            dueAt: 0,
+            lastAnsweredAt: 0,
+          },
+          'oldcat:ghost:1': {
+            questionId: 'oldcat:ghost:1',
+            category: 'oldcat', // CATEGORIESに存在しない
+            box: 0,
+            wrongCount: 1,
+            correctStreak: 0,
+            dueAt: 0,
+            lastAnsweredAt: 0,
+          },
+        },
+        categoryCounts: createInitialState().categoryCounts,
+      };
+      fakeLs.setItem(STORAGE_KEY, JSON.stringify(stateWithGhostCategory));
+      (globalThis as { window?: unknown }).window = { localStorage: fakeLs };
+      const store = createLocalStorageStore();
+
+      // Act
+      const loaded = store.load();
+
+      // Assert: 不明カテゴリのエントリだけが読み捨てられ、正常なエントリは残る
+      expect(loaded.entries['preflop:BTN:AKs']).toBeDefined();
+      expect(loaded.entries['oldcat:ghost:1']).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalled();
+    });
+
+    it('未知のカテゴリキーを含むcategoryCountsは、既知カテゴリのみ受理し未知キーは無視する', () => {
+      // Arrange
+      const fakeLs = new FakeLocalStorage();
+      const stateWithUnknownCategoryKey = {
+        version: 1,
+        entries: {},
+        categoryCounts: {
+          ...createInitialState().categoryCounts,
+          preflop: { total: 3, correct: 2 },
+          oldcat: { total: 100, correct: 100 }, // CATEGORIESに存在しないキー
+        },
+      };
+      fakeLs.setItem(STORAGE_KEY, JSON.stringify(stateWithUnknownCategoryKey));
+      (globalThis as { window?: unknown }).window = { localStorage: fakeLs };
+      const store = createLocalStorageStore();
+
+      // Act
+      const loaded = store.load();
+
+      // Assert: 既知カテゴリの値は保持され、未知キーはスキーマ不正扱いにもならず単に無視される
+      expect(loaded.categoryCounts.preflop).toEqual({ total: 3, correct: 2 });
+      expect((loaded.categoryCounts as Record<string, unknown>).oldcat).toBeUndefined();
+    });
+  });
 });

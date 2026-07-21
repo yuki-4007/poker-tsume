@@ -12,7 +12,9 @@
 //   odds:outs:<outs>:<flop|turn>               例: 'odds:outs:9:flop'
 // ============================================================
 import type { Category, Question } from '../types';
+import { buildBetSizeQuestionFromId, sampleBetSizeQuestion } from './betSize';
 import { isValidHandClass } from './handGrid';
+import { buildOutsCountQuestionFromId, sampleOutsCountQuestion } from './outsCount';
 import {
   buildOddsOutsQuestion,
   buildOddsReqQuestion,
@@ -48,6 +50,10 @@ export function generateQuestion(category: Category, rng: () => number): Questio
       return samplePushFoldQuestion(rng);
     case 'odds':
       return sampleOddsQuestion(rng);
+    case 'outscount':
+      return sampleOutsCountQuestion(rng);
+    case 'betsize':
+      return sampleBetSizeQuestion(rng);
     default: {
       const exhaustiveCheck: never = category;
       throw new Error(`未対応のカテゴリです: ${String(exhaustiveCheck)}`);
@@ -80,6 +86,14 @@ export function buildQuestionFromId(id: string): Question | null {
   const [head, ...rest] = id.split(':');
 
   try {
+    if (head === 'outscount') {
+      return buildOutsCountQuestionFromId(id);
+    }
+
+    if (head === 'betsize') {
+      return buildBetSizeQuestionFromId(id);
+    }
+
     if (head === 'preflop' && rest.length === 2) {
       const [posStr, handClass] = rest;
       if (posStr === undefined || handClass === undefined) {

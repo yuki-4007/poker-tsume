@@ -4,7 +4,14 @@ import type { SessionState } from './drill';
 import { renderSessionSummary } from './sessionSummary';
 
 function session(overrides: Partial<SessionState>): SessionState {
-  return { answered: 10, correct: 0, correctStreak: 0, bestStreak: 0, ...overrides };
+  return {
+    answered: 10,
+    correct: 0,
+    correctStreak: 0,
+    bestStreak: 0,
+    answeredIds: new Set(),
+    ...overrides,
+  };
 }
 
 describe('renderSessionSummary', () => {

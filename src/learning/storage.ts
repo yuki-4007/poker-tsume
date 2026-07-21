@@ -58,7 +58,15 @@ function isNonNegativeFinite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
-function isValidSrsEntry(value: unknown): value is SrsEntry {
+/**
+ * SRSエントリの「形」を検証する（categoryの値がCATEGORIESに含まれるかどうかは問わない）。
+ *
+ * category の受理範囲チェックをここで行わないのは、カテゴリ体系が変化した場合
+ * （例: 3→5カテゴリ拡張、将来的なカテゴリ削除）に、そのエントリ1件だけを
+ * 読み捨てて残りの進捗を保持できるようにするため。数値レンジなど他のフィールドが
+ * 壊れている場合は、データ全体の信頼性が疑わしいためスキーマ不正として扱う。
+ */
+function isValidSrsEntryShape(value: unknown): value is RawSrsEntry {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
@@ -66,7 +74,6 @@ function isValidSrsEntry(value: unknown): value is SrsEntry {
   return (
     typeof v.questionId === 'string' &&
     typeof v.category === 'string' &&
-    (CATEGORIES as readonly string[]).includes(v.category) &&
     isNonNegativeInt(v.box) &&
     v.box <= MAX_BOX &&
     isNonNegativeInt(v.wrongCount) &&
@@ -76,12 +83,33 @@ function isValidSrsEntry(value: unknown): value is SrsEntry {
   );
 }
 
-function isValidCategoryCounts(value: unknown): value is Record<Category, CategoryCounts> {
+/** JSONから読み込んだ直後のSRSエントリ。category はまだ Category に絞り込まれていない生の文字列。 */
+interface RawSrsEntry {
+  readonly questionId: string;
+  readonly category: string;
+  readonly box: number;
+  readonly wrongCount: number;
+  readonly correctStreak: number;
+  readonly dueAt: number;
+  readonly lastAnsweredAt: number;
+}
+
+/**
+ * カテゴリ別集計を検証する。既知カテゴリ（CATEGORIES）のキーが存在すればその値の
+ * 妥当性を厳密にチェックし、存在しない既知カテゴリは許容する（load時に0埋めで補完する）。
+ * CATEGORIES にない未知のキーは無視する（検証対象にしない）。
+ */
+function isValidCategoryCountsPartial(
+  value: unknown,
+): value is Readonly<Partial<Record<Category, CategoryCounts>>> {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
   const v = value as Record<string, unknown>;
   return CATEGORIES.every((category) => {
+    if (!(category in v)) {
+      return true;
+    }
     const entry = v[category];
     if (typeof entry !== 'object' || entry === null) {
       return false;
@@ -91,8 +119,15 @@ function isValidCategoryCounts(value: unknown): value is Record<Category, Catego
   });
 }
 
+/** isValidPersistedState を通過した直後の、まだ正規化前の生の永続状態。 */
+interface RawPersistedState {
+  readonly version: 1;
+  readonly entries: Readonly<Record<string, RawSrsEntry>>;
+  readonly categoryCounts: Readonly<Partial<Record<Category, CategoryCounts>>>;
+}
+
 /** 読み込んだ生JSONがスキーマに一致するかを検証する（壊れたデータからの回復に使う）。 */
-function isValidPersistedState(value: unknown): value is PersistedProgressV1 {
+function isValidPersistedState(value: unknown): value is RawPersistedState {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
@@ -103,11 +138,55 @@ function isValidPersistedState(value: unknown): value is PersistedProgressV1 {
   if (typeof v.entries !== 'object' || v.entries === null) {
     return false;
   }
-  const entriesOk = Object.values(v.entries as Record<string, unknown>).every(isValidSrsEntry);
+  const entriesOk = Object.values(v.entries as Record<string, unknown>).every(
+    isValidSrsEntryShape,
+  );
   if (!entriesOk) {
     return false;
   }
-  return isValidCategoryCounts(v.categoryCounts);
+  return isValidCategoryCountsPartial(v.categoryCounts);
+}
+
+/**
+ * 検証済みの生エントリ集合から、カテゴリ体系の変更に追従できない
+ * （現在の CATEGORIES に存在しないカテゴリを指す）エントリを読み捨てて正規化する。
+ * 該当エントリがある場合は console.warn で通知する（無言で消さない）。
+ */
+function normalizeEntries(rawEntries: Readonly<Record<string, RawSrsEntry>>): Record<string, SrsEntry> {
+  const result: Record<string, SrsEntry> = {};
+  for (const [questionId, entry] of Object.entries(rawEntries)) {
+    if (!(CATEGORIES as readonly string[]).includes(entry.category)) {
+      console.warn(
+        `[learning/storage] 不明なカテゴリのSRSエントリを読み捨てます: questionId=${questionId}, category=${entry.category}`,
+      );
+      continue;
+    }
+    result[questionId] = { ...entry, category: entry.category as Category };
+  }
+  return result;
+}
+
+/**
+ * 検証済みのカテゴリ別集計から、現行の CATEGORIES 全件を持つ完全な集計へ正規化する。
+ * 保存データに存在しないカテゴリ（例: 3カテゴリ時代のデータに存在しない新カテゴリ）は
+ * {total: 0, correct: 0} で補完する。これにより、カテゴリ拡張前の旧データを読み込んでも
+ * 進捗が消去されずに引き継がれる。
+ */
+function normalizeCategoryCounts(
+  raw: Readonly<Partial<Record<Category, CategoryCounts>>>,
+): Record<Category, CategoryCounts> {
+  return CATEGORIES.reduce<Record<Category, CategoryCounts>>((acc, category) => {
+    return { ...acc, [category]: raw[category] ?? { total: 0, correct: 0 } };
+  }, {} as Record<Category, CategoryCounts>);
+}
+
+/** 検証済みの生状態を、現行スキーマ（全カテゴリ0埋め済み）の状態へ正規化する。 */
+function normalizeState(raw: RawPersistedState): PersistedProgressV1 {
+  return {
+    version: 1,
+    entries: normalizeEntries(raw.entries),
+    categoryCounts: normalizeCategoryCounts(raw.categoryCounts),
+  };
 }
 
 /**
@@ -162,7 +241,9 @@ export function createLocalStorageStore(): ProgressStore {
           );
           return createInitialState();
         }
-        return parsed;
+        // 既知カテゴリの欠落（旧カテゴリ体系からの移行）を0埋めで補完し、
+        // 現行の CATEGORIES に存在しないカテゴリのエントリを読み捨てて正規化する。
+        return normalizeState(parsed);
       } catch (error) {
         console.warn(
           '[learning/storage] 保存データの読み込みに失敗したため、初期状態から開始します',

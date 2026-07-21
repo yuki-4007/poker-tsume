@@ -52,3 +52,21 @@ export function renderHand(hand: readonly [CardStr, CardStr], label: string): st
     </div>
   `;
 }
+
+/**
+ * コミュニティカード（ボード）を描画する。アウツカウント・ベットサイズ問題などで使用。
+ * 3枚（フロップ）・4枚（ターン）いずれの枚数にも対応する。
+ * 手札より小さいサイズで表示するため `.board` スコープの専用クラスを付与する
+ * （実際のサイズ調整は styles/components.css 側で行う）。
+ */
+export function renderBoard(board: readonly CardStr[], label: string): string {
+  const cardsHtml = board.map((card) => renderCard(card)).join('');
+  return `
+    <div class="board">
+      <span class="board__label">${escapeHtml(label)}</span>
+      <div class="board__cards" role="img" aria-label="${escapeHtml(label)}">
+        ${cardsHtml}
+      </div>
+    </div>
+  `;
+}

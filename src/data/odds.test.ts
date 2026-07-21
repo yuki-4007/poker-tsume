@@ -44,6 +44,35 @@ describe('buildOddsReqQuestion - 選択肢', () => {
   });
 });
 
+describe('ODDS_REQ_PATTERNS - 出題空間の拡張', () => {
+  test('暗記されにくいよう十分な件数（80〜120件）に拡張されている', () => {
+    expect(ODDS_REQ_PATTERNS.length).toBeGreaterThanOrEqual(80);
+    expect(ODDS_REQ_PATTERNS.length).toBeLessThanOrEqual(120);
+  });
+
+  test('全パターンでコール額が整数かつ50の倍数、pot > call を満たす', () => {
+    for (const { pot, call } of ODDS_REQ_PATTERNS) {
+      expect(Number.isInteger(call)).toBe(true);
+      expect(call % 50).toBe(0);
+      expect(call).toBeLessThan(pot);
+      expect(call).toBeGreaterThan(0);
+    }
+  });
+
+  test('全パターンの(pot, call)にID重複がない', () => {
+    const ids = ODDS_REQ_PATTERNS.map(({ pot, call }) => `${pot}:${call}`);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  test('必要勝率は 20% / 25% / 33.3% / 40% のいずれかきれいな値に収まる', () => {
+    const allowedRates = new Set(['20%', '25%', '33.3%', '40%']);
+    for (const { pot, call } of ODDS_REQ_PATTERNS) {
+      const question = buildOddsReqQuestion(pot, call);
+      expect(allowedRates.has(question.correctChoiceId)).toBe(true);
+    }
+  });
+});
+
 describe('buildOddsOutsQuestion - 計算式', () => {
   test('フロップ時点は アウツ×4% で計算される（9アウツ → 36%）', () => {
     // Arrange & Act

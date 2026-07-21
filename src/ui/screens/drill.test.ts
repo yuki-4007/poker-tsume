@@ -50,6 +50,15 @@ describe('pickRandomCategory', () => {
     // Assert
     expect(category).toBe(CATEGORIES[CATEGORIES.length - 1]);
   });
+
+  it('5カテゴリすべてが、対応するrng区間から選ばれる（カテゴリ拡張への追従を確認）', () => {
+    // Arrange & Act & Assert
+    expect(CATEGORIES.length).toBe(5);
+    CATEGORIES.forEach((expectedCategory, index) => {
+      const rngValue = (index + 0.5) / CATEGORIES.length;
+      expect(pickRandomCategory(alwaysFixed(rngValue))).toBe(expectedCategory);
+    });
+  });
 });
 
 describe('pickQuestion', () => {
@@ -113,6 +122,72 @@ describe('pickQuestion', () => {
   });
 });
 
+/** index.test.ts と同じ決定的な乱数生成器（mulberry32）。 */
+function seededRng(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+describe('pickQuestion のセッション内重複防止', () => {
+  it('新規生成がセッション内既出IDと重複する場合、同じrng系列でも再抽選して別の問題を返す', () => {
+    // Arrange: 復習期限なし（新規生成のみが発生する状態）。
+    // 同じseedのrng系列を2回使い、1回目の結果を「既出」として2回目に渡す。
+    learningApi._configureForTest(createMemoryStore());
+    const seed = 12345;
+    const withoutDedup = generateQuestion('preflop', seededRng(seed));
+    const excludeIds = new Set([withoutDedup.id]);
+
+    // Act: 同一seedのrng系列でも、既出IDと重複するため再抽選が起きるはず
+    const withDedup = pickQuestion('preflop', seededRng(seed), excludeIds);
+
+    // Assert: 素の生成結果とは異なる問題が返る（再抽選が発生した証拠）
+    expect(withDedup.id).not.toBe(withoutDedup.id);
+  });
+
+  it('復習期限到来問題（due）はセッション内既出IDと重複していても再抽選しない', () => {
+    // Arrange
+    learningApi._configureForTest(createMemoryStore());
+    learningApi.recordAnswer('odds:req:3000:1000', 'odds', false, NOW);
+    const excludeIds = new Set(['odds:req:3000:1000']);
+    const rng = firstThenFixed(0.1, 0.5); // 再出題(due)を選ぶ値
+
+    // Act
+    const question = pickQuestion('odds', rng, excludeIds);
+
+    // Assert: 復習出題はexcludeIdsに関わらずそのまま返る（復習は同じ問題を出すのが目的のため）
+    expect(question.id).toBe('odds:req:3000:1000');
+  });
+
+  it('最大8回再抽選しても重複が解消しない場合は、重複したままでも出題する（無限ループにならない）', () => {
+    // Arrange: 常に同じ問題しか生成しない固定rng
+    learningApi._configureForTest(createMemoryStore());
+    const rng = alwaysFixed(0.5);
+    const stuckId = generateQuestion('preflop', alwaysFixed(0.5)).id;
+    const excludeIds = new Set([stuckId]);
+
+    // Act & Assert: 何度再抽選しても同じ問題しか出ないため、例外を投げず重複したまま返す
+    let question: Question | undefined;
+    expect(() => {
+      question = pickQuestion('preflop', rng, excludeIds);
+    }).not.toThrow();
+    expect(question?.id).toBe(stuckId);
+  });
+
+  it('excludeIdsを省略した場合は重複防止が働かない（デフォルト値は空集合）', () => {
+    // Arrange
+    learningApi._configureForTest(createMemoryStore());
+
+    // Act & Assert: 第3引数を省略しても例外にならない
+    expect(() => pickQuestion('preflop', alwaysFixed(0.5))).not.toThrow();
+  });
+});
+
 describe('renderQuestionCard のHTMLエスケープ', () => {
   it('危険文字列を含むQuestionを渡してもscript要素や属性注入が発生しない', () => {
     // Arrange
@@ -140,7 +215,7 @@ describe('renderQuestionCard のHTMLエスケープ', () => {
       shell,
       maliciousQuestion,
       'preflop',
-      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0 },
+      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0, answeredIds: new Set() },
       () => {},
       () => {},
     );
@@ -174,7 +249,7 @@ describe('renderQuestionCard のHTMLエスケープ', () => {
       correctChoiceId: 'call',
       explanation: ['解説'],
     };
-    const originalSession: SessionState = { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0 };
+    const originalSession: SessionState = { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0, answeredIds: new Set() };
     let receivedSession: SessionState | null = null;
 
     renderQuestionCard(
@@ -192,8 +267,14 @@ describe('renderQuestionCard のHTMLエスケープ', () => {
     shell.querySelector<HTMLButtonElement>('[data-choice-id="call"]')?.click();
 
     // Assert: 元のオブジェクトは不変のまま、コールバックには新しいオブジェクトが渡る
-    expect(originalSession).toEqual({ answered: 0, correct: 0, correctStreak: 0, bestStreak: 0 });
-    expect(receivedSession).toEqual({ answered: 1, correct: 1, correctStreak: 1, bestStreak: 1 });
+    expect(originalSession).toEqual({ answered: 0, correct: 0, correctStreak: 0, bestStreak: 0, answeredIds: new Set() });
+    expect(receivedSession).toEqual({
+      answered: 1,
+      correct: 1,
+      correctStreak: 1,
+      bestStreak: 1,
+      answeredIds: new Set(['odds:req:3000:1000']),
+    });
   });
 });
 
@@ -219,7 +300,7 @@ describe('renderQuestionCard の正誤記号・aria-live・フォーカス管理
       shell,
       SAMPLE_QUESTION,
       'odds',
-      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0 },
+      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0, answeredIds: new Set() },
       () => {},
       () => {},
     );
@@ -237,7 +318,7 @@ describe('renderQuestionCard の正誤記号・aria-live・フォーカス管理
       shell,
       SAMPLE_QUESTION,
       'odds',
-      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0 },
+      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0, answeredIds: new Set() },
       () => {},
       () => {},
     );
@@ -262,7 +343,7 @@ describe('renderQuestionCard の正誤記号・aria-live・フォーカス管理
       shell,
       SAMPLE_QUESTION,
       'odds',
-      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0 },
+      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0, answeredIds: new Set() },
       () => {},
       () => {},
     );
@@ -285,7 +366,7 @@ describe('renderQuestionCard の正誤記号・aria-live・フォーカス管理
       shell,
       SAMPLE_QUESTION,
       'odds',
-      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0 },
+      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0, answeredIds: new Set() },
       () => {},
       () => {},
     );
@@ -304,7 +385,7 @@ describe('renderQuestionCard の正誤記号・aria-live・フォーカス管理
       mixedShell,
       SAMPLE_QUESTION,
       'mixed',
-      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0 },
+      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0, answeredIds: new Set() },
       () => {},
       () => {},
     );
@@ -314,7 +395,7 @@ describe('renderQuestionCard の正誤記号・aria-live・フォーカス管理
       singleShell,
       SAMPLE_QUESTION,
       'odds',
-      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0 },
+      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0, answeredIds: new Set() },
       () => {},
       () => {},
     );
@@ -333,7 +414,7 @@ describe('renderQuestionCard の正誤記号・aria-live・フォーカス管理
       shell,
       SAMPLE_QUESTION,
       'odds',
-      { answered: SESSION_LENGTH - 1, correct: 0, correctStreak: 0, bestStreak: 0 },
+      { answered: SESSION_LENGTH - 1, correct: 0, correctStreak: 0, bestStreak: 0, answeredIds: new Set() },
       () => {},
       () => {},
     );
@@ -352,7 +433,7 @@ describe('renderQuestionCard の正誤記号・aria-live・フォーカス管理
       shell,
       SAMPLE_QUESTION,
       'odds',
-      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0 },
+      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0, answeredIds: new Set() },
       () => {},
       () => {},
     );
@@ -362,6 +443,67 @@ describe('renderQuestionCard の正誤記号・aria-live・フォーカス管理
 
     // Assert
     expect(shell.querySelector('.next-button')?.textContent?.trim()).toBe('次へ');
+  });
+});
+
+const QUESTION_WITH_BOARD: Question = {
+  id: 'outscount:test:1',
+  category: 'outscount',
+  prompt: {
+    title: 'アウツを数える',
+    situation: ['フラッシュドロー。アウツは何枚？'],
+    hand: ['As', 'Ks'],
+    board: ['Qs', '7s', '2h'],
+  },
+  choices: [
+    { id: '9', label: '9枚' },
+    { id: '8', label: '8枚' },
+  ],
+  correctChoiceId: '9',
+  explanation: ['解説'],
+};
+
+describe('renderQuestionCard のボード表示', () => {
+  it('question.prompt.boardがあるとき、手札の上にコミュニティカードが表示される', () => {
+    // Arrange
+    const shell = document.createElement('main');
+
+    // Act
+    renderQuestionCard(
+      shell,
+      QUESTION_WITH_BOARD,
+      'outscount',
+      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0, answeredIds: new Set() },
+      () => {},
+      () => {},
+    );
+
+    // Assert: ボードが描画され、手札より前（DOM順で上）に出現する
+    const questionCard = shell.querySelector('.question-card');
+    expect(questionCard?.querySelector('.board')).not.toBeNull();
+    expect(questionCard?.querySelectorAll('.board .playing-card')).toHaveLength(3);
+    expect(questionCard?.querySelector('.hand')).not.toBeNull();
+    const html = questionCard?.innerHTML ?? '';
+    expect(html.indexOf('class="board"')).toBeGreaterThanOrEqual(0);
+    expect(html.indexOf('class="board"')).toBeLessThan(html.indexOf('class="hand"'));
+  });
+
+  it('question.prompt.boardが無い場合はボード要素が描画されない', () => {
+    // Arrange
+    const shell = document.createElement('main');
+
+    // Act
+    renderQuestionCard(
+      shell,
+      SAMPLE_QUESTION,
+      'odds',
+      { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0, answeredIds: new Set() },
+      () => {},
+      () => {},
+    );
+
+    // Assert
+    expect(shell.querySelector('.board')).toBeNull();
   });
 });
 

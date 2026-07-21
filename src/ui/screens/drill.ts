@@ -4,7 +4,7 @@ import { CATEGORIES, CATEGORY_LABELS } from '../../types';
 import { generateQuestion, buildQuestionFromId } from '../../data';
 import { getDueEntries, recordAnswer, removeEntry } from '../../learning';
 import { escapeHtml } from '../utils/escape';
-import { renderHand } from '../components/card';
+import { renderBoard, renderHand } from '../components/card';
 import { renderSessionSummary } from './sessionSummary';
 
 /** 復習期限到来問題を優先的に再出題する確率。 */
@@ -13,16 +13,25 @@ const DUE_REPEAT_PROBABILITY = 0.6;
 /** 1セッションで出題する問題数。この数に達したら結果サマリーを表示する。 */
 export const SESSION_LENGTH = 10;
 
+/**
+ * 新規生成した問題がセッション内で既出のIDと重複した場合に再抽選する最大回数。
+ * 出題空間が狭いカテゴリでは再抽選しても解消しないことがあるため、上限に達したら
+ * 重複したままでも出題する（無限ループを防ぐ）。
+ */
+const MAX_REROLL_ATTEMPTS = 8;
+
 export interface SessionState {
   readonly answered: number;
   readonly correct: number;
   readonly correctStreak: number;
   /** セッション内で記録した最大の連続正解数。 */
   readonly bestStreak: number;
+  /** このセッション内で既に出題した問題IDの集合。新規生成時の重複出題防止に使う。 */
+  readonly answeredIds: ReadonlySet<string>;
 }
 
 function createInitialSession(): SessionState {
-  return { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0 };
+  return { answered: 0, correct: 0, correctStreak: 0, bestStreak: 0, answeredIds: new Set() };
 }
 
 /** rng は [0,1) を返す乱数関数（テスト時に固定可能。プロジェクト規約は src/data/rngUtils.ts 参照）。 */
@@ -35,8 +44,17 @@ export function pickRandomCategory(rng: () => number): Category {
  * 期限到来問題があれば60%で再出題、それ以外は新規生成する。
  * 再出題対象のquestionIdがbuildQuestionFromIdで再構築できない場合（データ定義変更などで
  * 該当問題が消滅した「亡霊エントリ」）は、SRSエントリを削除してから新規生成にフォールバックする。
+ *
+ * excludeIds に含まれるIDは「このセッションで既に出題済み」を表す。新規生成がこの集合と
+ * 重複した場合は最大 MAX_REROLL_ATTEMPTS 回まで再抽選する（それでも解消しなければ
+ * 重複したまま出題する）。復習出題（due）は同じ問題を出すこと自体が目的のため、
+ * excludeIds による再抽選の対象外とする。
  */
-export function pickQuestion(category: Category, rng: () => number): Question {
+export function pickQuestion(
+  category: Category,
+  rng: () => number,
+  excludeIds: ReadonlySet<string> = new Set(),
+): Question {
   const dueForCategory = getDueEntries().filter((entry) => entry.category === category);
   const topDue = dueForCategory[0];
 
@@ -48,7 +66,11 @@ export function pickQuestion(category: Category, rng: () => number): Question {
     removeEntry(topDue.questionId);
   }
 
-  return generateQuestion(category, rng);
+  let question = generateQuestion(category, rng);
+  for (let attempt = 1; attempt < MAX_REROLL_ATTEMPTS && excludeIds.has(question.id); attempt += 1) {
+    question = generateQuestion(category, rng);
+  }
+  return question;
 }
 
 function updateSessionLabel(shell: HTMLElement, session: SessionState): void {
@@ -91,6 +113,11 @@ export function renderQuestionCard(
       ? `<span class="badge badge--stack">${question.prompt.stackBB}BB</span>`
       : '';
 
+  const boardHtml =
+    question.prompt.board && question.prompt.board.length > 0
+      ? renderBoard(question.prompt.board, 'ボード')
+      : '';
+
   const handHtml = question.prompt.hand ? renderHand(question.prompt.hand, 'あなたのハンド') : '';
 
   const choicesHtml = question.choices
@@ -116,6 +143,7 @@ export function renderQuestionCard(
       <h2 class="question-title">${escapeHtml(question.prompt.title)}</h2>
       <div class="question-badges">${positionBadge}${stackBadge}</div>
       <div class="situation">${situationHtml}</div>
+      ${boardHtml}
       ${handHtml}
     </section>
 
@@ -142,6 +170,7 @@ export function renderQuestionCard(
       correct: session.correct + (correct ? 1 : 0),
       correctStreak,
       bestStreak: Math.max(session.bestStreak, correctStreak),
+      answeredIds: new Set([...session.answeredIds, question.id]),
     };
 
     recordAnswer(question.id, question.category, correct);
@@ -241,7 +270,7 @@ export function renderDrill(root: HTMLElement, categoryParam: Category | 'mixed'
       return;
     }
     const category = categoryParam === 'mixed' ? pickRandomCategory(rng) : categoryParam;
-    const question = pickQuestion(category, rng);
+    const question = pickQuestion(category, rng, session.answeredIds);
     renderQuestionCard(shell, question, categoryParam, session, handleSessionChange, showNextQuestion);
   };
 

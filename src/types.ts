@@ -18,13 +18,21 @@ export type CardStr = `${Rank}${Suit}`;
 export type Position = 'UTG' | 'HJ' | 'CO' | 'BTN' | 'SB' | 'BB';
 
 /** 出題カテゴリ */
-export type Category = 'preflop' | 'odds' | 'pushfold';
+export type Category = 'preflop' | 'odds' | 'outscount' | 'betsize' | 'pushfold';
 
-export const CATEGORIES: readonly Category[] = ['preflop', 'odds', 'pushfold'];
+export const CATEGORIES: readonly Category[] = [
+  'preflop',
+  'odds',
+  'outscount',
+  'betsize',
+  'pushfold',
+];
 
 export const CATEGORY_LABELS: Readonly<Record<Category, string>> = {
   preflop: 'プリフロップレンジ',
   odds: 'オッズ計算',
+  outscount: 'アウツを数える',
+  betsize: 'ベットサイズ',
   pushfold: 'プッシュ/フォールド',
 };
 
@@ -40,6 +48,8 @@ export interface QuestionPrompt {
   readonly situation: readonly string[];
   /** 自分のハンド（オッズ問題では省略可） */
   readonly hand?: readonly [CardStr, CardStr];
+  /** コミュニティカード（アウツカウント・Cベット問題で使用。3枚=フロップ、4枚=ターン） */
+  readonly board?: readonly CardStr[];
   readonly position?: Position;
   /** 有効スタック（BB単位）。プッシュ/フォールド問題で必須 */
   readonly stackBB?: number;

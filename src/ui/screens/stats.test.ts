@@ -8,9 +8,9 @@ vi.mock('../../types', async (importOriginal) => {
   return {
     ...actual,
     CATEGORY_LABELS: {
+      ...actual.CATEGORY_LABELS,
       preflop: '<script>alert(1)</script>',
       odds: '"onmouseover=alert(1) x="',
-      pushfold: actual.CATEGORY_LABELS.pushfold,
     },
   };
 });
@@ -62,7 +62,7 @@ describe('renderStats のHTMLエスケープ', () => {
     renderStats(root);
 
     // Assert
-    expect(root.querySelectorAll('.stats-row')).toHaveLength(3);
+    expect(root.querySelectorAll('.stats-row')).toHaveLength(5);
     expect(root.querySelector('.reset-button')).not.toBeNull();
   });
 
